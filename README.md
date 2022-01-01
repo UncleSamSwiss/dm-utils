@@ -52,13 +52,17 @@ The device manager tab allows the user to interact with the adapter instance in 
 
 When the user clicks on an action (i.e. a button in the UI), the `DeviceManagement` implementation's `handleXxxAction()` is called and the adapter can perform arbitrary actions (see below for details).
 
+## Examples
+
+To get an idea of how to use `dm-utils`, please have a look at:
+- [the folder "examples"](examples/) or
+- [ioBroker.dm-test](https://github.com/UncleSamSwiss/ioBroker.dm-test)
+
 ## `DeviceManagement` methods to override
 
 All methods can either return an object of the defined value or a `Promise` resolving to the object.
 
 This allows you to implement the method synchronously or asynchronously, depending on your implementation.
-
-For example adapters, see [inside the folder "examples"](examples/).
 
 ### `listDevices()`
 
