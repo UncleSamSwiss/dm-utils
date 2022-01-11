@@ -52,6 +52,12 @@ The device manager tab allows the user to interact with the adapter instance in 
 
 When the user clicks on an action (i.e. a button in the UI), the `DeviceManagement` implementation's `handleXxxAction()` is called and the adapter can perform arbitrary actions (see below for details).
 
+### Access adapter methods
+
+You can access all adapter methods like `getState()` or `getStateAsync()` via `this.adapter`.  
+Example: `this.getState()` -> `this.adapter.getState()`
+
+
 ## Examples
 
 To get an idea of how to use `dm-utils`, please have a look at:
@@ -193,6 +199,4 @@ This asynchronous method returns (or rather: the Promise is resolved) once the u
 - the form data, if the user clicked "OK"
 - `undefined`, if the user clicked "Cancel"
 
-### Your own adapter methods
 
-You can easily call synchronous or asynchronous methods on your adapter. The adapter object is available as `this.adapter` in the action handler methods.
