@@ -129,7 +129,7 @@ class DmTestDeviceManagement extends DeviceManagement {
 				return { refresh: confirm ? "device" : "instance" };
 			case "forms":
 				this.log.info(`Forms was pressed on ${deviceId}`);
-				const data = await context.showForm(demoFormSchema, { myPort: 8081, secondPort: 8082 });
+				const data = await context.showForm(demoFormSchema, { data:{ myPort: 8081, secondPort: 8082 } });
 				if (!data) {
 					await context.showMessage("You cancelled the previous form!");
 				} else {
