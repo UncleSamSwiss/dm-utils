@@ -187,16 +187,45 @@ This asynchronous method returns (or rather: the Promise is resolved) once the u
 - `true` if the user clicked "OK"
 - `false` if the user clicked "Cancel"
 
-### `showForm(schema: JsonFormSchema, data?: JsonFormData)`
+### `showForm(schema: JsonFormSchema, options?: { data?: JsonFormData; title?: string })`
 
 Shows a dialog with a Custom JSON form that can be edited by the user.
 
 The method has the following parameters:
 - `schema` (Custom JSON form schema): the schema of the Custom JSON form to show in the dialog
-- `data` (object, optional): the data used to populate the Custom JSON form
+- `options` (object, optional): options to configure the dialog further
+  - `data` (object, optional): the data used to populate the Custom JSON form
+  - `title` (string, optional): the dialog title
 
 This asynchronous method returns (or rather: the Promise is resolved) once the user has clicked a button in the dialog:
 - the form data, if the user clicked "OK"
 - `undefined`, if the user clicked "Cancel"
 
+### `openProgress(title: string, options?: {indeterminate?: boolean, value?: number, label?: string})`
+
+Shows a dialog with a linear progress bar to the user. There is no way for the user to dismiss this dialog.
+
+The method has the following parameters:
+- `title` (string): the dialog title
+- `options` (object, optional): options to configure the dialog further
+  - `indeterminate` (boolean, optional): set to `true` to visualize an unspecified wait time
+  - `value` (number, optional): the progress value to show to the user (if set, it must be a value between 0 and 100)
+  - `label` (string, optional): label to show to the right of the progress bar; you may show the progress value in a human readable way (e.g. "42%") or show the current step in a multi-step progress (e.g. "Logging in...")
+
+This method returns a promise that resolves to a `ProgressDialog` object.
+
+**Important:** you must always call `close()` on the returned object before you may open any other dialog.
+
+`ProgressDialog` has two methods:
+
+- `update(update: { title?: string; indeterminate?: boolean; value?:number; label?: string; })`
+  - Updates the progress dialog with new values
+  - The method has the following parameter:
+    - `update` (object): what to update in the dialog
+      - `title` (string, optional): change the dialog title
+      - `indeterminate` (boolean, optional): change whether the progress is indeterminate
+      - `value` (number, optional): change the progress value
+      - `label` (string, optional): change the label to the right of the progress bar
+- `close()`
+  - Closes the progress dialog (and allows you to open other dialogs)
 

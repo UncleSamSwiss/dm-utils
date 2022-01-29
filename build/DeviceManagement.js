@@ -44,10 +44,10 @@ class DeviceManagement {
                 this.adapter.sendTo(msg.from, msg.command, details, msg.callback);
                 return;
             case "dm:instanceAction": {
-                const actionId = msg.message;
+                const action = msg.message;
                 const context = new MessageContext(msg, this.adapter);
                 this.contexts.set(msg._id, context);
-                const result = await this.handleInstanceAction(actionId, context);
+                const result = await this.handleInstanceAction(action.actionId, context);
                 this.contexts.delete(msg._id);
                 context.sendFinalResult(result);
                 return;
@@ -65,6 +65,7 @@ class DeviceManagement {
                 const { origin } = msg.message;
                 const context = this.contexts.get(origin);
                 if (!context) {
+                    this.log.warn(`Unknown message origin: ${origin}`);
                     this.adapter.sendTo(msg.from, msg.command, { error: "Unknown action origin" }, msg.callback);
                     return;
                 }
@@ -78,9 +79,11 @@ exports.DeviceManagement = DeviceManagement;
 class MessageContext {
     constructor(msg, adapter) {
         this.adapter = adapter;
+        this.hasOpenProgressDialog = false;
         this.lastMessage = msg;
     }
     showMessage(text) {
+        this.checkPreconditions();
         const promise = new Promise((resolve) => {
             this.progressHandler = () => resolve();
         });
@@ -90,6 +93,7 @@ class MessageContext {
         return promise;
     }
     showConfirmation(text) {
+        this.checkPreconditions();
         const promise = new Promise((resolve) => {
             this.progressHandler = (msg) => resolve(!!msg.confirm);
         });
@@ -98,12 +102,47 @@ class MessageContext {
         });
         return promise;
     }
-    showForm(schema, data) {
+    showForm(schema, options) {
+        this.checkPreconditions();
         const promise = new Promise((resolve) => {
             this.progressHandler = (msg) => resolve(msg.data);
         });
         this.send("form", {
-            form: { schema, data },
+            form: Object.assign({ schema }, options),
+        });
+        return promise;
+    }
+    openProgress(title, options) {
+        this.checkPreconditions();
+        this.hasOpenProgressDialog = true;
+        const dialog = {
+            update: (update) => {
+                const promise = new Promise((resolve) => {
+                    this.progressHandler = () => resolve();
+                });
+                this.send("progress", {
+                    progress: Object.assign(Object.assign(Object.assign({ title }, options), update), { open: true }),
+                });
+                return promise;
+            },
+            close: () => {
+                const promise = new Promise((resolve) => {
+                    this.progressHandler = () => {
+                        this.hasOpenProgressDialog = false;
+                        resolve();
+                    };
+                });
+                this.send("progress", {
+                    progress: { open: false },
+                });
+                return promise;
+            }
+        };
+        const promise = new Promise((resolve) => {
+            this.progressHandler = (msg) => resolve(dialog);
+        });
+        this.send("progress", {
+            progress: Object.assign(Object.assign({ title }, options), { open: true }),
         });
         return promise;
     }
@@ -113,13 +152,23 @@ class MessageContext {
         });
     }
     handleProgress(message) {
-        if (this.progressHandler && typeof message.message !== "string") {
+        const currentHandler = this.progressHandler;
+        if (currentHandler && typeof message.message !== "string") {
             this.lastMessage = message;
-            this.progressHandler(message.message);
             this.progressHandler = undefined;
+            currentHandler(message.message);
+        }
+    }
+    checkPreconditions() {
+        if (this.hasOpenProgressDialog) {
+            throw new Error("Can't show another dialog while a progress dialog is open. Please call 'close()' on the dialog before opening another dialog.");
         }
     }
     send(type, message) {
-        this.adapter.sendTo(this.lastMessage.from, this.lastMessage.command, Object.assign(Object.assign({}, message), { type, origin: this.lastMessage._id }), this.lastMessage.callback);
+        if (!this.lastMessage) {
+            throw new Error("No outstanding message, can't send a new one");
+        }
+        this.adapter.sendTo(this.lastMessage.from, this.lastMessage.command, Object.assign(Object.assign({}, message), { type, origin: this.lastMessage.message.origin || this.lastMessage._id }), this.lastMessage.callback);
+        this.lastMessage = undefined;
     }
 }

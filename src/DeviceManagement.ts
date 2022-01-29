@@ -1,5 +1,6 @@
 import { AdapterInstance } from "@iobroker/adapter-core";
 import { ActionContext } from "./ActionContext";
+import { ProgressDialog } from "./ProgressDialog";
 import { DeviceDetails, DeviceInfo, DeviceRefresh, InstanceDetails, JsonFormData, JsonFormSchema, RetVal } from "./types";
 
 export abstract class DeviceManagement<T extends AdapterInstance = AdapterInstance> {
@@ -61,10 +62,10 @@ export abstract class DeviceManagement<T extends AdapterInstance = AdapterInstan
 				this.adapter.sendTo(msg.from, msg.command, details, msg.callback);
 				return;
 			case "dm:instanceAction": {
-				const actionId = msg.message as string;
+				const action = msg.message as { actionId: string; };
 				const context = new MessageContext<boolean>(msg, this.adapter);
 				this.contexts.set(msg._id, context);
-				const result = await this.handleInstanceAction(actionId, context);
+				const result = await this.handleInstanceAction(action.actionId, context);
 				this.contexts.delete(msg._id);
 				context.sendFinalResult(result);
 				return;
@@ -82,6 +83,7 @@ export abstract class DeviceManagement<T extends AdapterInstance = AdapterInstan
 				const { origin } = msg.message as { origin: number };
 				const context = this.contexts.get(origin);
 				if (!context) {
+					this.log.warn(`Unknown message origin: ${origin}`)
 					this.adapter.sendTo(msg.from, msg.command, { error: "Unknown action origin" }, msg.callback);
 					return;
 				}
@@ -94,7 +96,8 @@ export abstract class DeviceManagement<T extends AdapterInstance = AdapterInstan
 }
 
 class MessageContext<T> implements ActionContext {
-	private lastMessage: ioBroker.Message;
+	private hasOpenProgressDialog = false;
+	private lastMessage?: ioBroker.Message;
 	private progressHandler?: (message: Record<string, any>) => void;
 
 	constructor(msg: ioBroker.Message, private readonly adapter: AdapterInstance) {
@@ -102,6 +105,7 @@ class MessageContext<T> implements ActionContext {
 	}
 
 	showMessage(text: ioBroker.StringOrTranslated): Promise<void> {
+		this.checkPreconditions();
 		const promise = new Promise<void>((resolve) => {
 			this.progressHandler = () => resolve();
 		});
@@ -112,6 +116,7 @@ class MessageContext<T> implements ActionContext {
 	}
 
 	showConfirmation(text: ioBroker.StringOrTranslated): Promise<boolean> {
+		this.checkPreconditions();
 		const promise = new Promise<boolean>((resolve) => {
 			this.progressHandler = (msg) => resolve(!!msg.confirm);
 		});
@@ -121,12 +126,55 @@ class MessageContext<T> implements ActionContext {
 		return promise;
 	}
 
-	showForm(schema: JsonFormSchema, data?: JsonFormData): Promise<JsonFormData | undefined> {
+	showForm(schema: JsonFormSchema, options?: {data?: JsonFormData; title?:string;}): Promise<JsonFormData | undefined> {
+		this.checkPreconditions();
 		const promise = new Promise<JsonFormData | undefined>((resolve) => {
 			this.progressHandler = (msg) => resolve(msg.data);
 		});
 		this.send("form", {
-			form: { schema, data },
+			form: { schema, ...options },
+		});
+		return promise;
+	}
+
+	openProgress(title: string, options?: {indeterminate?: boolean, value?: number, label?: string}): Promise<ProgressDialog> {
+		this.checkPreconditions();
+		this.hasOpenProgressDialog = true;
+		const dialog: ProgressDialog ={
+			update: (update: {
+				title?: string;
+				indeterminate?: boolean;
+				value?:number;
+				label?: string;
+			}) => {
+				const promise = new Promise<void>((resolve) => {
+					this.progressHandler = () => resolve();
+				});
+				this.send("progress", {
+					progress: { title, ...options, ...update, open: true },
+				});
+				return promise;
+			},
+
+			close: () => {
+				const promise = new Promise<void>((resolve) => {
+					this.progressHandler = () => {
+						this.hasOpenProgressDialog = false;
+						resolve();
+					}
+				});
+				this.send("progress", {
+					progress: { open: false },
+				});
+				return promise;
+			}
+		};
+
+		const promise = new Promise<ProgressDialog>((resolve) => {
+			this.progressHandler = (msg) => resolve(dialog);
+		});
+		this.send("progress", {
+			progress: { title, ...options, open: true },
 		});
 		return promise;
 	}
@@ -138,23 +186,34 @@ class MessageContext<T> implements ActionContext {
 	}
 
 	handleProgress(message: ioBroker.Message): void {
-		if (this.progressHandler && typeof message.message !== "string") {
+		const currentHandler = this.progressHandler;
+		if (currentHandler && typeof message.message !== "string") {
 			this.lastMessage = message;
-			this.progressHandler(message.message);
 			this.progressHandler = undefined;
+			currentHandler(message.message);
+		}
+	}
+
+	private checkPreconditions() {
+		if (this.hasOpenProgressDialog) {
+			throw new Error("Can't show another dialog while a progress dialog is open. Please call 'close()' on the dialog before opening another dialog.");
 		}
 	}
 
 	private send(type: string, message: any): void {
+		if (!this.lastMessage) {
+			throw new Error("No outstanding message, can't send a new one")
+		}
 		this.adapter.sendTo(
 			this.lastMessage.from,
 			this.lastMessage.command,
 			{
 				...message,
 				type,
-				origin: this.lastMessage._id,
+				origin: (this.lastMessage.message as any).origin || this.lastMessage._id,
 			},
 			this.lastMessage.callback,
 		);
+		this.lastMessage = undefined;
 	}
 }
