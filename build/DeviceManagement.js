@@ -16,11 +16,44 @@ class DeviceManagement {
     getDeviceDetails(id) {
         return { id, schema: {} };
     }
-    handleInstanceAction(_actionId, _context) {
-        return { refresh: false };
+    handleInstanceAction(actionId, context) {
+        var _a;
+        if (!this.instanceInfo) {
+            this.log.warn(`Instance action ${actionId} was called before getInstanceInfo()`);
+            return { refresh: false };
+        }
+        const action = (_a = this.instanceInfo.actions) === null || _a === void 0 ? void 0 : _a.find((a) => a.id === actionId);
+        if (!action) {
+            this.log.warn(`Instance action ${actionId} is unknown`);
+            return { refresh: false };
+        }
+        if (!action.handler) {
+            this.log.warn(`Instance action ${actionId} is disabled because it has no handler`);
+            return { refresh: false };
+        }
+        return action.handler(context);
     }
-    handleDeviceAction(_deviceId, _actionId, _context) {
-        return { refresh: false };
+    handleDeviceAction(deviceId, actionId, context) {
+        var _a;
+        if (!this.devices) {
+            this.log.warn(`Device action ${actionId} was called before listDevices()`);
+            return { refresh: false };
+        }
+        const device = this.devices.get(deviceId);
+        if (!device) {
+            this.log.warn(`Device action ${actionId} was called on unknown device: ${deviceId}`);
+            return { refresh: false };
+        }
+        const action = (_a = device.actions) === null || _a === void 0 ? void 0 : _a.find((a) => a.id === actionId);
+        if (!action) {
+            this.log.warn(`Device action ${actionId} doesn't exist on device ${deviceId}`);
+            return { refresh: false };
+        }
+        if (!action.handler) {
+            this.log.warn(`Device action ${actionId} on ${deviceId} is disabled because it has no handler`);
+            return { refresh: false };
+        }
+        return action.handler(deviceId, context);
     }
     onMessage(obj) {
         if (!obj.command.startsWith("dm:")) {
@@ -33,10 +66,18 @@ class DeviceManagement {
         switch (msg.command) {
             case "dm:instanceInfo":
                 this.instanceInfo = await this.getInstanceInfo();
-                this.adapter.sendTo(msg.from, msg.command, this.instanceInfo, msg.callback);
+                this.sendReply(Object.assign(Object.assign({}, this.instanceInfo), { actions: this.convertActions(this.instanceInfo.actions) }), msg);
                 return;
             case "dm:listDevices":
-                this.devices = await this.listDevices();
+                const deviceList = await this.listDevices();
+                this.devices = deviceList.reduce((map, value) => {
+                    if (map.has(value.id)) {
+                        throw new Error(`Device ID ${value.id} is not unique`);
+                    }
+                    map.set(value.id, value);
+                    return map;
+                }, new Map());
+                this.sendReply(deviceList.map((d) => (Object.assign(Object.assign({}, d), { actions: this.convertActions(d.actions) }))), msg);
                 this.adapter.sendTo(msg.from, msg.command, this.devices, msg.callback);
                 return;
             case "dm:deviceDetails":
@@ -66,13 +107,28 @@ class DeviceManagement {
                 const context = this.contexts.get(origin);
                 if (!context) {
                     this.log.warn(`Unknown message origin: ${origin}`);
-                    this.adapter.sendTo(msg.from, msg.command, { error: "Unknown action origin" }, msg.callback);
+                    this.sendReply({ error: "Unknown action origin" }, msg);
                     return;
                 }
                 context.handleProgress(msg);
                 return;
             }
         }
+    }
+    convertActions(actions) {
+        if (!actions)
+            return undefined;
+        const ids = new Set();
+        actions.forEach((a) => {
+            if (ids.has(a.id)) {
+                throw new Error(`Action ID ${a.id} is used twice, this would lead to unexpected behavior`);
+            }
+            ids.add(a.id);
+        });
+        return actions.map((a) => (Object.assign(Object.assign({}, a), { handler: undefined, disabled: !a.handler })));
+    }
+    sendReply(reply, msg) {
+        this.adapter.sendTo(msg.from, msg.command, reply, msg.callback);
     }
 }
 exports.DeviceManagement = DeviceManagement;
@@ -136,7 +192,7 @@ class MessageContext {
                     progress: { open: false },
                 });
                 return promise;
-            }
+            },
         };
         const promise = new Promise((resolve) => {
             this.progressHandler = (msg) => resolve(dialog);

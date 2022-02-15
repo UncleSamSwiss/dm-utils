@@ -1,11 +1,21 @@
 import { AdapterInstance } from "@iobroker/adapter-core";
 import { ActionContext } from "./ActionContext";
 import { ProgressDialog } from "./ProgressDialog";
-import { DeviceDetails, DeviceInfo, DeviceRefresh, InstanceDetails, JsonFormData, JsonFormSchema, RetVal } from "./types";
+import {
+	ActionBase,
+	DeviceDetails,
+	DeviceInfo,
+	DeviceRefresh,
+	InstanceDetails,
+	JsonFormData,
+	JsonFormSchema,
+	RetVal,
+} from "./types";
+import * as api from "./types/api";
 
 export abstract class DeviceManagement<T extends AdapterInstance = AdapterInstance> {
 	private instanceInfo?: InstanceDetails;
-	private devices?: DeviceInfo[];
+	private devices?: Map<string, DeviceInfo>;
 
 	private readonly contexts = new Map<number, MessageContext<any>>();
 
@@ -27,16 +37,47 @@ export abstract class DeviceManagement<T extends AdapterInstance = AdapterInstan
 		return { id, schema: {} };
 	}
 
-	protected handleInstanceAction(_actionId: string, _context: ActionContext): RetVal<{ refresh: boolean }> {
-		return { refresh: false };
+	protected handleInstanceAction(actionId: string, context: ActionContext): RetVal<{ refresh: boolean }> {
+		if (!this.instanceInfo) {
+			this.log.warn(`Instance action ${actionId} was called before getInstanceInfo()`);
+			return { refresh: false };
+		}
+		const action = this.instanceInfo.actions?.find((a) => a.id === actionId);
+		if (!action) {
+			this.log.warn(`Instance action ${actionId} is unknown`);
+			return { refresh: false };
+		}
+		if (!action.handler) {
+			this.log.warn(`Instance action ${actionId} is disabled because it has no handler`);
+			return { refresh: false };
+		}
+		return action.handler(context);
 	}
 
 	protected handleDeviceAction(
-		_deviceId: string,
-		_actionId: string,
-		_context: ActionContext,
+		deviceId: string,
+		actionId: string,
+		context: ActionContext,
 	): RetVal<{ refresh: DeviceRefresh }> {
-		return { refresh: false };
+		if (!this.devices) {
+			this.log.warn(`Device action ${actionId} was called before listDevices()`);
+			return { refresh: false };
+		}
+		const device = this.devices.get(deviceId);
+		if (!device) {
+			this.log.warn(`Device action ${actionId} was called on unknown device: ${deviceId}`);
+			return { refresh: false };
+		}
+		const action = device.actions?.find((a) => a.id === actionId);
+		if (!action) {
+			this.log.warn(`Device action ${actionId} doesn't exist on device ${deviceId}`);
+			return { refresh: false };
+		}
+		if (!action.handler) {
+			this.log.warn(`Device action ${actionId} on ${deviceId} is disabled because it has no handler`);
+			return { refresh: false };
+		}
+		return action.handler(deviceId, context);
 	}
 
 	private onMessage(obj: ioBroker.Message): void {
@@ -51,10 +92,24 @@ export abstract class DeviceManagement<T extends AdapterInstance = AdapterInstan
 		switch (msg.command) {
 			case "dm:instanceInfo":
 				this.instanceInfo = await this.getInstanceInfo();
-				this.adapter.sendTo(msg.from, msg.command, this.instanceInfo, msg.callback);
+				this.sendReply<api.InstanceDetails>(
+					{ ...this.instanceInfo, actions: this.convertActions(this.instanceInfo.actions) },
+					msg,
+				);
 				return;
 			case "dm:listDevices":
-				this.devices = await this.listDevices();
+				const deviceList = await this.listDevices();
+				this.devices = deviceList.reduce((map, value) => {
+					if (map.has(value.id)) {
+						throw new Error(`Device ID ${value.id} is not unique`);
+					}
+					map.set(value.id, value);
+					return map;
+				}, new Map<string, DeviceInfo>());
+				this.sendReply<api.DeviceInfo[]>(
+					deviceList.map((d) => ({ ...d, actions: this.convertActions(d.actions) })),
+					msg,
+				);
 				this.adapter.sendTo(msg.from, msg.command, this.devices, msg.callback);
 				return;
 			case "dm:deviceDetails":
@@ -62,7 +117,7 @@ export abstract class DeviceManagement<T extends AdapterInstance = AdapterInstan
 				this.adapter.sendTo(msg.from, msg.command, details, msg.callback);
 				return;
 			case "dm:instanceAction": {
-				const action = msg.message as { actionId: string; };
+				const action = msg.message as { actionId: string };
 				const context = new MessageContext<boolean>(msg, this.adapter);
 				this.contexts.set(msg._id, context);
 				const result = await this.handleInstanceAction(action.actionId, context);
@@ -83,8 +138,8 @@ export abstract class DeviceManagement<T extends AdapterInstance = AdapterInstan
 				const { origin } = msg.message as { origin: number };
 				const context = this.contexts.get(origin);
 				if (!context) {
-					this.log.warn(`Unknown message origin: ${origin}`)
-					this.adapter.sendTo(msg.from, msg.command, { error: "Unknown action origin" }, msg.callback);
+					this.log.warn(`Unknown message origin: ${origin}`);
+					this.sendReply({ error: "Unknown action origin" }, msg);
 					return;
 				}
 
@@ -92,6 +147,25 @@ export abstract class DeviceManagement<T extends AdapterInstance = AdapterInstan
 				return;
 			}
 		}
+	}
+
+	private convertActions<T extends ActionBase, U extends api.ActionBase>(actions?: T[]): undefined | U[] {
+		if (!actions) return undefined;
+
+		const ids = new Set<string>();
+
+		actions.forEach((a) => {
+			if (ids.has(a.id)) {
+				throw new Error(`Action ID ${a.id} is used twice, this would lead to unexpected behavior`);
+			}
+			ids.add(a.id);
+		});
+
+		return actions.map((a: any) => ({ ...a, handler: undefined, disabled: !a.handler }));
+	}
+
+	private sendReply<T>(reply: T, msg: ioBroker.Message) {
+		this.adapter.sendTo(msg.from, msg.command, reply, msg.callback);
 	}
 }
 
@@ -126,7 +200,10 @@ class MessageContext<T> implements ActionContext {
 		return promise;
 	}
 
-	showForm(schema: JsonFormSchema, options?: {data?: JsonFormData; title?:string;}): Promise<JsonFormData | undefined> {
+	showForm(
+		schema: JsonFormSchema,
+		options?: { data?: JsonFormData; title?: string },
+	): Promise<JsonFormData | undefined> {
 		this.checkPreconditions();
 		const promise = new Promise<JsonFormData | undefined>((resolve) => {
 			this.progressHandler = (msg) => resolve(msg.data);
@@ -137,16 +214,14 @@ class MessageContext<T> implements ActionContext {
 		return promise;
 	}
 
-	openProgress(title: string, options?: {indeterminate?: boolean, value?: number, label?: string}): Promise<ProgressDialog> {
+	openProgress(
+		title: string,
+		options?: { indeterminate?: boolean; value?: number; label?: string },
+	): Promise<ProgressDialog> {
 		this.checkPreconditions();
 		this.hasOpenProgressDialog = true;
-		const dialog: ProgressDialog ={
-			update: (update: {
-				title?: string;
-				indeterminate?: boolean;
-				value?:number;
-				label?: string;
-			}) => {
+		const dialog: ProgressDialog = {
+			update: (update: { title?: string; indeterminate?: boolean; value?: number; label?: string }) => {
 				const promise = new Promise<void>((resolve) => {
 					this.progressHandler = () => resolve();
 				});
@@ -161,13 +236,13 @@ class MessageContext<T> implements ActionContext {
 					this.progressHandler = () => {
 						this.hasOpenProgressDialog = false;
 						resolve();
-					}
+					};
 				});
 				this.send("progress", {
 					progress: { open: false },
 				});
 				return promise;
-			}
+			},
 		};
 
 		const promise = new Promise<ProgressDialog>((resolve) => {
@@ -196,13 +271,15 @@ class MessageContext<T> implements ActionContext {
 
 	private checkPreconditions() {
 		if (this.hasOpenProgressDialog) {
-			throw new Error("Can't show another dialog while a progress dialog is open. Please call 'close()' on the dialog before opening another dialog.");
+			throw new Error(
+				"Can't show another dialog while a progress dialog is open. Please call 'close()' on the dialog before opening another dialog.",
+			);
 		}
 	}
 
 	private send(type: string, message: any): void {
 		if (!this.lastMessage) {
-			throw new Error("No outstanding message, can't send a new one")
+			throw new Error("No outstanding message, can't send a new one");
 		}
 		this.adapter.sendTo(
 			this.lastMessage.from,

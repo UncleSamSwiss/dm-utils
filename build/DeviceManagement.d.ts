@@ -12,12 +12,14 @@ export declare abstract class DeviceManagement<T extends AdapterInstance = Adapt
     protected getInstanceInfo(): RetVal<InstanceDetails>;
     protected abstract listDevices(): RetVal<DeviceInfo[]>;
     protected getDeviceDetails(id: string): RetVal<DeviceDetails>;
-    protected handleInstanceAction(_actionId: string, _context: ActionContext): RetVal<{
+    protected handleInstanceAction(actionId: string, context: ActionContext): RetVal<{
         refresh: boolean;
     }>;
-    protected handleDeviceAction(_deviceId: string, _actionId: string, _context: ActionContext): RetVal<{
+    protected handleDeviceAction(deviceId: string, actionId: string, context: ActionContext): RetVal<{
         refresh: DeviceRefresh;
     }>;
     private onMessage;
     private handleMessage;
+    private convertActions;
+    private sendReply;
 }

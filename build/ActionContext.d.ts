@@ -1,5 +1,5 @@
 /// <reference types="iobroker" />
-import { JsonFormSchema, JsonFormData } from ".";
+import { JsonFormData, JsonFormSchema } from ".";
 import { ProgressDialog } from "./ProgressDialog";
 export interface ActionContext {
     showMessage(text: ioBroker.StringOrTranslated): Promise<void>;
