@@ -52,6 +52,12 @@ The device manager tab allows the user to interact with the adapter instance in 
 
 When the user clicks on an action (i.e. a button in the UI), the `DeviceManagement` implementation's `handleXxxAction()` is called and the adapter can perform arbitrary actions (see below for details).
 
+### Communication
+
+The communication between the ioBroker.dm tab and the adapter happens through `sendTo`.
+
+**IMPORANT:** make sure your adapter doesn't handle `sendTo` messages starting with `dm:`, otherwise the communication will not work.
+
 ### Access adapter methods
 
 You can access all adapter methods like `getState()` or `getStateAsync()` via `this.adapter`.  
