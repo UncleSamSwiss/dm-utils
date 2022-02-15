@@ -29,7 +29,7 @@ export interface InstanceDetails<T extends ActionType = "api"> {
 export interface DeviceInfo<T extends ActionType = "api"> {
     id: string;
     name: ioBroker.StringOrTranslated;
-    status?: DeviceStatus;
+    status?: DeviceStatus | DeviceStatus[];
     actions?: DeviceAction<T>[];
     hasDetails?: boolean;
 }
