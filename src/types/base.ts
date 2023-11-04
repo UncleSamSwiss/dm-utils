@@ -15,7 +15,7 @@ export interface ActionBase<T extends ActionType> {
 
 export interface InstanceAction<T extends ActionType = "api"> extends ActionBase<T> {
 	handler?: T extends "api" ? never : (context: ActionContext) => RetVal<{ refresh: boolean }>;
-	title: string;
+	title: ioBroker.StringOrTranslated;
 }
 
 export interface DeviceAction<T extends ActionType = "api"> extends ActionBase<T> {
