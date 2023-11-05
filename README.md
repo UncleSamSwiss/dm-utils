@@ -4,6 +4,10 @@ Utility classes for ioBroker adapters to support [ioBroker.dm](https://github.co
 
 ## How to use
 
+Add in your 'io-package.json' the property 'deviceManager: true' to 'common.supportedMessages'.
+Note: If you don't have a 'common.supportedMessages' property yet, you have to add it.
+Also if you don't have a 'common.messagebox: true' property yet, you have to add it.
+
 In your ioBroker adapter, add a subclass of `DeviceManagement` and override the methods you need (see next chapters):
 
 Example:
