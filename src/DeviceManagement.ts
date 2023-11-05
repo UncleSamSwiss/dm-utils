@@ -37,19 +37,19 @@ export abstract class DeviceManagement<T extends AdapterInstance = AdapterInstan
 		return { id, schema: {} };
 	}
 
-	protected handleInstanceAction(actionId: string, context: ActionContext): RetVal<{ refresh: boolean }> {
+	protected handleInstanceAction(actionId: string, context: ActionContext): RetVal<{ error: {code: number, message: string} }> | RetVal<{ refresh: boolean }> {
 		if (!this.instanceInfo) {
 			this.log.warn(`Instance action ${actionId} was called before getInstanceInfo()`);
-			return { refresh: false };
+			return { error: {code: 101, message: `Instance action ${actionId} was called before getInstanceInfo()`} };
 		}
 		const action = this.instanceInfo.actions?.find((a) => a.id === actionId);
 		if (!action) {
 			this.log.warn(`Instance action ${actionId} is unknown`);
-			return { refresh: false };
+			return { error: {code: 102, message: `Instance action ${actionId} is unknown`} };
 		}
 		if (!action.handler) {
 			this.log.warn(`Instance action ${actionId} is disabled because it has no handler`);
-			return { refresh: false };
+			return { error: {code: 103, message: `Instance action ${actionId} is disabled because it has no handler`} };
 		}
 		return action.handler(context);
 	}
@@ -254,7 +254,7 @@ class MessageContext<T> implements ActionContext {
 		return promise;
 	}
 
-	sendFinalResult(result: { refresh: T }): void {
+	sendFinalResult(result: { error: {code: number, message: string} } | { refresh: T }): void {
 		this.send("result", {
 			result,
 		});

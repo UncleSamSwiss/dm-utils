@@ -1,9 +1,10 @@
+/// <reference types="iobroker" />
 export interface ProgressDialog {
     update(update: {
-        title?: string;
+        title?: ioBroker.StringOrTranslated;
         indeterminate?: boolean;
         value?: number;
-        label?: string;
+        label?: ioBroker.StringOrTranslated;
     }): Promise<void>;
     close(): Promise<void>;
 }

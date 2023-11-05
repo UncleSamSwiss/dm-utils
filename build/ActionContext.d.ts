@@ -6,11 +6,11 @@ export interface ActionContext {
     showConfirmation(text: ioBroker.StringOrTranslated): Promise<boolean>;
     showForm(schema: JsonFormSchema, options?: {
         data?: JsonFormData;
-        title?: string;
+        title?: ioBroker.StringOrTranslated;
     }): Promise<JsonFormData | undefined>;
     openProgress(title: string, options?: {
         indeterminate?: boolean;
         value?: number;
-        label?: string;
+        label?: ioBroker.StringOrTranslated;
     }): Promise<ProgressDialog>;
 }

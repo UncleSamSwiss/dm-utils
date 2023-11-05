@@ -1,6 +1,6 @@
 {
   "name": "@jey-cee/dm-utils",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "ioBroker Device Manager utilities",
   "main": "build/index.js",
   "types": "build/index.d.ts",

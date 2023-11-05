@@ -67,6 +67,12 @@ The communication between the ioBroker.dm tab and the adapter happens through `s
 You can access all adapter methods like `getState()` or `getStateAsync()` via `this.adapter`.  
 Example: `this.getState()` -> `this.adapter.getState()`
 
+### Error Codes
+| Code | Description                                                                                                                   | 
+| --- |-------------------------------------------------------------------------------------------------------------------------------|
+| 101 | Instance action ${actionId} was called before getInstanceInfo() was called. This could happen if the instance has restarted.  |   
+| 102 | Instance action ${actionId} is unknown.                                                                                       |                                                   
+| 103 | Instance action ${actionId} is disabled because it has no handler.                                                            |                                                   
 
 ## Examples
 
