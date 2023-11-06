@@ -11,7 +11,7 @@ export type DeviceStatus =
 			description?: ioBroker.StringOrTranslated;
 	  };
 
-export type DeviceRefresh = "device" | "instance" | false;
+export type DeviceRefresh = "device" | "instance" | false | true;
 
 export type RetVal<T> = T | Promise<T>;
 

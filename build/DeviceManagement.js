@@ -8,6 +8,7 @@ class DeviceManagement {
         adapter.on("message", this.onMessage.bind(this));
     }
     get log() {
+        // @ts-ignore no idea why this doesn't work
         return this.adapter.log;
     }
     getInstanceInfo() {
@@ -37,21 +38,21 @@ class DeviceManagement {
         var _a;
         if (!this.devices) {
             this.log.warn(`Device action ${actionId} was called before listDevices()`);
-            return { refresh: false };
+            return { error: { code: 201, message: `Device action ${actionId} was called before listDevices()` } };
         }
         const device = this.devices.get(deviceId);
         if (!device) {
             this.log.warn(`Device action ${actionId} was called on unknown device: ${deviceId}`);
-            return { refresh: false };
+            return { error: { code: 202, message: `Device action ${actionId} was called on unknown device: ${deviceId}` } };
         }
         const action = (_a = device.actions) === null || _a === void 0 ? void 0 : _a.find((a) => a.id === actionId);
         if (!action) {
             this.log.warn(`Device action ${actionId} doesn't exist on device ${deviceId}`);
-            return { refresh: false };
+            return { error: { code: 203, message: `Device action ${actionId} doesn't exist on device ${deviceId}` } };
         }
         if (!action.handler) {
             this.log.warn(`Device action ${actionId} on ${deviceId} is disabled because it has no handler`);
-            return { refresh: false };
+            return { error: { code: 204, message: `Device action ${actionId} on ${deviceId} is disabled because it has no handler` } };
         }
         return action.handler(deviceId, context);
     }

@@ -1,4 +1,3 @@
-/// <reference types="iobroker" />
 export interface ProgressDialog {
     update(update: {
         title?: ioBroker.StringOrTranslated;

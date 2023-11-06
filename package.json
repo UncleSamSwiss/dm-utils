@@ -1,6 +1,6 @@
 {
   "name": "@jey-cee/dm-utils",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "ioBroker Device Manager utilities",
   "main": "build/index.js",
   "types": "build/index.d.ts",
@@ -10,9 +10,10 @@
   "author": "UncleSamSwiss",
   "license": "MIT",
   "dependencies": {
-    "@iobroker/adapter-core": "^2.6.8"
+    "@iobroker/adapter-core": "^3.0.4"
   },
   "devDependencies": {
-    "typescript": "^4.5.4"
+    "typescript": "^5.2.2",
+    "@types/node": "^20.8.10"
   }
 }

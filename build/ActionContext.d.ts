@@ -1,4 +1,3 @@
-/// <reference types="iobroker" />
 import { JsonFormData, JsonFormSchema } from ".";
 import { ProgressDialog } from "./ProgressDialog";
 export interface ActionContext {

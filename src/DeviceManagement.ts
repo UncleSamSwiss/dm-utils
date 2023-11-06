@@ -24,6 +24,7 @@ export abstract class DeviceManagement<T extends AdapterInstance = AdapterInstan
 	}
 
 	protected get log(): ioBroker.Logger {
+
 		return this.adapter.log;
 	}
 
@@ -33,7 +34,7 @@ export abstract class DeviceManagement<T extends AdapterInstance = AdapterInstan
 
 	protected abstract listDevices(): RetVal<DeviceInfo[]>;
 
-	protected getDeviceDetails(id: string): RetVal<DeviceDetails> {
+	protected getDeviceDetails(id: string): RetVal<DeviceDetails | null | {error: string}> {
 		return { id, schema: {} };
 	}
 
@@ -58,24 +59,24 @@ export abstract class DeviceManagement<T extends AdapterInstance = AdapterInstan
 		deviceId: string,
 		actionId: string,
 		context: ActionContext,
-	): RetVal<{ refresh: DeviceRefresh }> {
+	): RetVal<{ error: { code: number, message: string } }> | RetVal<{ refresh: boolean | string}> {
 		if (!this.devices) {
 			this.log.warn(`Device action ${actionId} was called before listDevices()`);
-			return { refresh: false };
+			return { error: {code: 201, message: `Device action ${actionId} was called before listDevices()`} };
 		}
 		const device = this.devices.get(deviceId);
 		if (!device) {
 			this.log.warn(`Device action ${actionId} was called on unknown device: ${deviceId}`);
-			return { refresh: false };
+			return { error: {code: 202, message: `Device action ${actionId} was called on unknown device: ${deviceId}`} };
 		}
 		const action = device.actions?.find((a) => a.id === actionId);
 		if (!action) {
 			this.log.warn(`Device action ${actionId} doesn't exist on device ${deviceId}`);
-			return { refresh: false };
+			return { error: {code: 203, message: `Device action ${actionId} doesn't exist on device ${deviceId}`} };
 		}
 		if (!action.handler) {
 			this.log.warn(`Device action ${actionId} on ${deviceId} is disabled because it has no handler`);
-			return { refresh: false };
+			return { error: {code: 204, message: `Device action ${actionId} on ${deviceId} is disabled because it has no handler`} };
 		}
 		return action.handler(deviceId, context);
 	}
@@ -254,7 +255,7 @@ class MessageContext<T> implements ActionContext {
 		return promise;
 	}
 
-	sendFinalResult(result: { error: {code: number, message: string} } | { refresh: T }): void {
+	sendFinalResult(result: { error: {code: number, message: string} } | { refresh: boolean | string }): void {
 		this.send("result", {
 			result,
 		});

@@ -1,7 +1,6 @@
-/// <reference types="iobroker" />
 import { ActionContext } from "..";
 import { ApiVersion, DeviceRefresh, DeviceStatus, RetVal } from "./common";
-declare type ActionType = "api" | "adapter";
+type ActionType = "api" | "adapter";
 export interface ActionBase<T extends ActionType> {
     id: string;
     /**
