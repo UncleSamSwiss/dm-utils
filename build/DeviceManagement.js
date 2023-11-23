@@ -8,7 +8,6 @@ class DeviceManagement {
         adapter.on("message", this.onMessage.bind(this));
     }
     get log() {
-        // @ts-ignore no idea why this doesn't work
         return this.adapter.log;
     }
     getInstanceInfo() {
@@ -30,7 +29,9 @@ class DeviceManagement {
         }
         if (!action.handler) {
             this.log.warn(`Instance action ${actionId} is disabled because it has no handler`);
-            return { error: { code: 103, message: `Instance action ${actionId} is disabled because it has no handler` } };
+            return {
+                error: { code: 103, message: `Instance action ${actionId} is disabled because it has no handler` },
+            };
         }
         return action.handler(context);
     }
@@ -43,7 +44,9 @@ class DeviceManagement {
         const device = this.devices.get(deviceId);
         if (!device) {
             this.log.warn(`Device action ${actionId} was called on unknown device: ${deviceId}`);
-            return { error: { code: 202, message: `Device action ${actionId} was called on unknown device: ${deviceId}` } };
+            return {
+                error: { code: 202, message: `Device action ${actionId} was called on unknown device: ${deviceId}` },
+            };
         }
         const action = (_a = device.actions) === null || _a === void 0 ? void 0 : _a.find((a) => a.id === actionId);
         if (!action) {
@@ -52,7 +55,12 @@ class DeviceManagement {
         }
         if (!action.handler) {
             this.log.warn(`Device action ${actionId} on ${deviceId} is disabled because it has no handler`);
-            return { error: { code: 204, message: `Device action ${actionId} on ${deviceId} is disabled because it has no handler` } };
+            return {
+                error: {
+                    code: 204,
+                    message: `Device action ${actionId} on ${deviceId} is disabled because it has no handler`,
+                },
+            };
         }
         return action.handler(deviceId, context);
     }
@@ -196,7 +204,7 @@ class MessageContext {
             },
         };
         const promise = new Promise((resolve) => {
-            this.progressHandler = (msg) => resolve(dialog);
+            this.progressHandler = () => resolve(dialog);
         });
         this.send("progress", {
             progress: Object.assign(Object.assign({ title }, options), { open: true }),

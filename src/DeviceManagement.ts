@@ -1,30 +1,20 @@
 import { AdapterInstance } from "@iobroker/adapter-core";
 import { ActionContext } from "./ActionContext";
 import { ProgressDialog } from "./ProgressDialog";
-import {
-	ActionBase,
-	DeviceDetails,
-	DeviceInfo,
-	DeviceRefresh,
-	InstanceDetails,
-	JsonFormData,
-	JsonFormSchema,
-	RetVal,
-} from "./types";
+import { ActionBase, DeviceDetails, DeviceInfo, InstanceDetails, JsonFormData, JsonFormSchema, RetVal } from "./types";
 import * as api from "./types/api";
 
 export abstract class DeviceManagement<T extends AdapterInstance = AdapterInstance> {
 	private instanceInfo?: InstanceDetails;
 	private devices?: Map<string, DeviceInfo>;
 
-	private readonly contexts = new Map<number, MessageContext<any>>();
+	private readonly contexts = new Map<number, MessageContext>();
 
 	constructor(protected readonly adapter: T) {
 		adapter.on("message", this.onMessage.bind(this));
 	}
 
-	protected get log(): ioBroker.Logger {
-
+	protected get log(): ioBroker.Log {
 		return this.adapter.log;
 	}
 
@@ -34,23 +24,28 @@ export abstract class DeviceManagement<T extends AdapterInstance = AdapterInstan
 
 	protected abstract listDevices(): RetVal<DeviceInfo[]>;
 
-	protected getDeviceDetails(id: string): RetVal<DeviceDetails | null | {error: string}> {
+	protected getDeviceDetails(id: string): RetVal<DeviceDetails | null | { error: string }> {
 		return { id, schema: {} };
 	}
 
-	protected handleInstanceAction(actionId: string, context: ActionContext): RetVal<{ error: {code: number, message: string} }> | RetVal<{ refresh: boolean }> {
+	protected handleInstanceAction(
+		actionId: string,
+		context: ActionContext,
+	): RetVal<{ error: { code: number; message: string } }> | RetVal<{ refresh: boolean }> {
 		if (!this.instanceInfo) {
 			this.log.warn(`Instance action ${actionId} was called before getInstanceInfo()`);
-			return { error: {code: 101, message: `Instance action ${actionId} was called before getInstanceInfo()`} };
+			return { error: { code: 101, message: `Instance action ${actionId} was called before getInstanceInfo()` } };
 		}
 		const action = this.instanceInfo.actions?.find((a) => a.id === actionId);
 		if (!action) {
 			this.log.warn(`Instance action ${actionId} is unknown`);
-			return { error: {code: 102, message: `Instance action ${actionId} is unknown`} };
+			return { error: { code: 102, message: `Instance action ${actionId} is unknown` } };
 		}
 		if (!action.handler) {
 			this.log.warn(`Instance action ${actionId} is disabled because it has no handler`);
-			return { error: {code: 103, message: `Instance action ${actionId} is disabled because it has no handler`} };
+			return {
+				error: { code: 103, message: `Instance action ${actionId} is disabled because it has no handler` },
+			};
 		}
 		return action.handler(context);
 	}
@@ -59,24 +54,31 @@ export abstract class DeviceManagement<T extends AdapterInstance = AdapterInstan
 		deviceId: string,
 		actionId: string,
 		context: ActionContext,
-	): RetVal<{ error: { code: number, message: string } }> | RetVal<{ refresh: boolean | string}> {
+	): RetVal<{ error: { code: number; message: string } }> | RetVal<{ refresh: boolean | string }> {
 		if (!this.devices) {
 			this.log.warn(`Device action ${actionId} was called before listDevices()`);
-			return { error: {code: 201, message: `Device action ${actionId} was called before listDevices()`} };
+			return { error: { code: 201, message: `Device action ${actionId} was called before listDevices()` } };
 		}
 		const device = this.devices.get(deviceId);
 		if (!device) {
 			this.log.warn(`Device action ${actionId} was called on unknown device: ${deviceId}`);
-			return { error: {code: 202, message: `Device action ${actionId} was called on unknown device: ${deviceId}`} };
+			return {
+				error: { code: 202, message: `Device action ${actionId} was called on unknown device: ${deviceId}` },
+			};
 		}
 		const action = device.actions?.find((a) => a.id === actionId);
 		if (!action) {
 			this.log.warn(`Device action ${actionId} doesn't exist on device ${deviceId}`);
-			return { error: {code: 203, message: `Device action ${actionId} doesn't exist on device ${deviceId}`} };
+			return { error: { code: 203, message: `Device action ${actionId} doesn't exist on device ${deviceId}` } };
 		}
 		if (!action.handler) {
 			this.log.warn(`Device action ${actionId} on ${deviceId} is disabled because it has no handler`);
-			return { error: {code: 204, message: `Device action ${actionId} on ${deviceId} is disabled because it has no handler`} };
+			return {
+				error: {
+					code: 204,
+					message: `Device action ${actionId} on ${deviceId} is disabled because it has no handler`,
+				},
+			};
 		}
 		return action.handler(deviceId, context);
 	}
@@ -119,7 +121,7 @@ export abstract class DeviceManagement<T extends AdapterInstance = AdapterInstan
 				return;
 			case "dm:instanceAction": {
 				const action = msg.message as { actionId: string };
-				const context = new MessageContext<boolean>(msg, this.adapter);
+				const context = new MessageContext(msg, this.adapter);
 				this.contexts.set(msg._id, context);
 				const result = await this.handleInstanceAction(action.actionId, context);
 				this.contexts.delete(msg._id);
@@ -128,7 +130,7 @@ export abstract class DeviceManagement<T extends AdapterInstance = AdapterInstan
 			}
 			case "dm:deviceAction": {
 				const action = msg.message as { actionId: string; deviceId: string };
-				const context = new MessageContext<DeviceRefresh>(msg, this.adapter);
+				const context = new MessageContext(msg, this.adapter);
 				this.contexts.set(msg._id, context);
 				const result = await this.handleDeviceAction(action.deviceId, action.actionId, context);
 				this.contexts.delete(msg._id);
@@ -165,17 +167,20 @@ export abstract class DeviceManagement<T extends AdapterInstance = AdapterInstan
 		return actions.map((a: any) => ({ ...a, handler: undefined, disabled: !a.handler }));
 	}
 
-	private sendReply<T>(reply: T, msg: ioBroker.Message) {
+	private sendReply<T>(reply: T, msg: ioBroker.Message): void {
 		this.adapter.sendTo(msg.from, msg.command, reply, msg.callback);
 	}
 }
 
-class MessageContext<T> implements ActionContext {
+class MessageContext implements ActionContext {
 	private hasOpenProgressDialog = false;
 	private lastMessage?: ioBroker.Message;
 	private progressHandler?: (message: Record<string, any>) => void;
 
-	constructor(msg: ioBroker.Message, private readonly adapter: AdapterInstance) {
+	constructor(
+		msg: ioBroker.Message,
+		private readonly adapter: AdapterInstance,
+	) {
 		this.lastMessage = msg;
 	}
 
@@ -247,7 +252,7 @@ class MessageContext<T> implements ActionContext {
 		};
 
 		const promise = new Promise<ProgressDialog>((resolve) => {
-			this.progressHandler = (msg) => resolve(dialog);
+			this.progressHandler = () => resolve(dialog);
 		});
 		this.send("progress", {
 			progress: { title, ...options, open: true },
@@ -255,7 +260,7 @@ class MessageContext<T> implements ActionContext {
 		return promise;
 	}
 
-	sendFinalResult(result: { error: {code: number, message: string} } | { refresh: boolean | string }): void {
+	sendFinalResult(result: { error: { code: number; message: string } } | { refresh: boolean | string }): void {
 		this.send("result", {
 			result,
 		});
@@ -270,7 +275,7 @@ class MessageContext<T> implements ActionContext {
 		}
 	}
 
-	private checkPreconditions() {
+	private checkPreconditions(): void {
 		if (this.hasOpenProgressDialog) {
 			throw new Error(
 				"Can't show another dialog while a progress dialog is open. Please call 'close()' on the dialog before opening another dialog.",

@@ -7,7 +7,7 @@ export declare abstract class DeviceManagement<T extends AdapterInstance = Adapt
     private devices?;
     private readonly contexts;
     constructor(adapter: T);
-    protected get log(): ioBroker.Logger;
+    protected get log(): ioBroker.Log;
     protected getInstanceInfo(): RetVal<InstanceDetails>;
     protected abstract listDevices(): RetVal<DeviceInfo[]>;
     protected getDeviceDetails(id: string): RetVal<DeviceDetails | null | {
