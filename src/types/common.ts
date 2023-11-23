@@ -13,6 +13,17 @@ export type DeviceStatus =
 
 export type DeviceRefresh = "device" | "instance" | false | true;
 
+export type RefreshResponse = {
+	refresh: DeviceRefresh;
+};
+
+export type ErrorResponse = {
+	error: {
+		code: number;
+		message: string;
+	};
+};
+
 export type RetVal<T> = T | Promise<T>;
 
 export type JsonFormSchema = Record<string, any>; // TODO: make this better typed

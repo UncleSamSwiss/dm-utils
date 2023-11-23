@@ -1,7 +1,17 @@
 import { AdapterInstance } from "@iobroker/adapter-core";
 import { ActionContext } from "./ActionContext";
 import { ProgressDialog } from "./ProgressDialog";
-import { ActionBase, DeviceDetails, DeviceInfo, InstanceDetails, JsonFormData, JsonFormSchema, RetVal } from "./types";
+import {
+	ActionBase,
+	DeviceDetails,
+	DeviceInfo,
+	ErrorResponse,
+	InstanceDetails,
+	JsonFormData,
+	JsonFormSchema,
+	RefreshResponse,
+	RetVal,
+} from "./types";
 import * as api from "./types/api";
 
 export abstract class DeviceManagement<T extends AdapterInstance = AdapterInstance> {
@@ -31,7 +41,7 @@ export abstract class DeviceManagement<T extends AdapterInstance = AdapterInstan
 	protected handleInstanceAction(
 		actionId: string,
 		context: ActionContext,
-	): RetVal<{ error: { code: number; message: string } }> | RetVal<{ refresh: boolean }> {
+	): RetVal<ErrorResponse> | RetVal<RefreshResponse> {
 		if (!this.instanceInfo) {
 			this.log.warn(`Instance action ${actionId} was called before getInstanceInfo()`);
 			return { error: { code: 101, message: `Instance action ${actionId} was called before getInstanceInfo()` } };
@@ -54,7 +64,7 @@ export abstract class DeviceManagement<T extends AdapterInstance = AdapterInstan
 		deviceId: string,
 		actionId: string,
 		context: ActionContext,
-	): RetVal<{ error: { code: number; message: string } }> | RetVal<{ refresh: boolean | string }> {
+	): RetVal<ErrorResponse> | RetVal<RefreshResponse> {
 		if (!this.devices) {
 			this.log.warn(`Device action ${actionId} was called before listDevices()`);
 			return { error: { code: 201, message: `Device action ${actionId} was called before listDevices()` } };
@@ -260,7 +270,7 @@ class MessageContext implements ActionContext {
 		return promise;
 	}
 
-	sendFinalResult(result: { error: { code: number; message: string } } | { refresh: boolean | string }): void {
+	sendFinalResult(result: ErrorResponse | RefreshResponse): void {
 		this.send("result", {
 			result,
 		});
