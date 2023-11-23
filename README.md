@@ -6,7 +6,7 @@ Utility classes for ioBroker adapters to support [ioBroker.dm](https://github.co
 
 Add in your 'io-package.json' the property 'deviceManager: true' to 'common.supportedMessages'.
 Note: If you don't have a 'common.supportedMessages' property yet, you have to add it.
-Also if you don't have a 'common.messagebox: true' property yet, you have to add it.
+Also, if you don't have a 'common.messagebox: true' property yet, you have to add it.
 
 In your ioBroker adapter, add a subclass of `DeviceManagement` and override the methods you need (see next chapters):
 
@@ -24,17 +24,18 @@ class MyAdapterDeviceManagement extends DeviceManagement<MyAdapter> {
 
 ```ts
 class MyAdapter extends utils.Adapter {
-	private readonly deviceManagement: MyAdapterDeviceManagement;
+    private readonly deviceManagement: MyAdapterDeviceManagement;
 
-	public constructor(options: Partial<utils.AdapterOptions> = {}) {
-		super({
-			...options,
-			name: "my-adapter",
-		});
-		this.deviceManagement = new DmTestDeviceManagement(this);
+    public constructor(options: Partial<utils.AdapterOptions> = {}) {
+        super({
+            ...options,
+            name: "my-adapter",
+        });
+        this.deviceManagement = new DmTestDeviceManagement(this);
 
         // ... more code here
-	}
+    }
+}
 ```
 
 ## Core concepts
@@ -68,20 +69,20 @@ You can access all adapter methods like `getState()` or `getStateAsync()` via `t
 Example: `this.getState()` -> `this.adapter.getState()`
 
 ### Error Codes
-| Code | Description                                                                                                                   | 
-| --- |-------------------------------------------------------------------------------------------------------------------------------|
-| 101 | Instance action ${actionId} was called before getInstanceInfo() was called. This could happen if the instance has restarted.  |   
-| 102 | Instance action ${actionId} is unknown.                                                                                       |                                                   
-| 103 | Instance action ${actionId} is disabled because it has no handler.                                                            |       
-| 201 | Device action ${actionId} was called before listDevices() was called. This could happen if the instance has restarted.      |
-| 202 | Device action ${actionId} was called on unknown device: ${deviceId}. |
-| 203 | Device action ${actionId} doesn't exist on device ${deviceId}. |
-| 204 | Device action ${actionId} on ${deviceId} is disabled because it has no handler. |
+| Code | Description                                                                                                                  | 
+|------|------------------------------------------------------------------------------------------------------------------------------|
+| 101  | Instance action ${actionId} was called before getInstanceInfo() was called. This could happen if the instance has restarted. |   
+| 102  | Instance action ${actionId} is unknown.                                                                                      |                                                   
+| 103  | Instance action ${actionId} is disabled because it has no handler.                                                           |       
+| 201  | Device action ${actionId} was called before listDevices() was called. This could happen if the instance has restarted.       |
+| 202  | Device action ${actionId} was called on unknown device: ${deviceId}.                                                         |
+| 203  | Device action ${actionId} doesn't exist on device ${deviceId}.                                                               |
+| 204  | Device action ${actionId} on ${deviceId} is disabled because it has no handler.                                              |
 
 ## Examples
 
 To get an idea of how to use `dm-utils`, please have a look at:
-- [the folder "examples"](examples/) or
+- [the folder "examples"](examples/dm-test.ts) or
 - [ioBroker.dm-test](https://github.com/UncleSamSwiss/ioBroker.dm-test)
 
 ## `DeviceManagement` methods to override
