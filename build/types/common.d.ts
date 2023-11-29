@@ -7,6 +7,15 @@ export type DeviceStatus = "connected" | "disconnected" | {
     description?: ioBroker.StringOrTranslated;
 };
 export type DeviceRefresh = "device" | "instance" | false | true;
+export type RefreshResponse = {
+    refresh: DeviceRefresh;
+};
+export type ErrorResponse = {
+    error: {
+        code: number;
+        message: string;
+    };
+};
 export type RetVal<T> = T | Promise<T>;
 export type JsonFormSchema = Record<string, any>;
 export type JsonFormData = Record<string, any>;

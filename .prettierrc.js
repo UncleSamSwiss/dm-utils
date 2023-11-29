@@ -3,7 +3,7 @@ module.exports = {
 	trailingComma: "all",
 	singleQuote: false,
 	printWidth: 120,
-	useTabs: true,
+	useTabs: false,
 	tabWidth: 4,
 	endOfLine: "lf",
 };
